@@ -62,11 +62,20 @@ def generateAllFrame(sample_dir, xml_INFO, net, BEV_coord, initParams, predLinFi
             paramSearch = [lla, llb, llc, lld]
 
         coords,params = getBestParams(binarizedImg_t, paramSearch, refPos)
-        #print(params)
-        d = params[3]
-        seedParams = params
-        d = PrevFilter(d, l_errors)
-        l_errors.append(d)
+        score = params[4]
+        if score < 50:
+            print("Frame %d score is %f, too low." % (i,score))
+            seedParams = []
+            prevVal = 0
+            if len(l_errors)>0:
+                prevVal = l_errors[-1]
+            l_errors.append(prevVal)
+
+        else:
+            d = params[3]
+            seedParams = params
+            d = PrevFilter(d, l_errors)
+            l_errors.append(d)
 
     if predLinFit is None:
         return l_errors
@@ -91,8 +100,7 @@ def main():
     model   = sys.argv[3]
     weights = sys.argv[4]
 
-    image_dir = os.path.dirname(sample_dir)
-    sample = os.path.basename(sample_dir)
+    sample = sample_dir.split("/")[-1]
 
     width   = 300
     x_start = 200
@@ -106,7 +114,6 @@ def main():
         "coord_3d":coord_3d,
         "coord_600cm" : coord_6m
     }
-
     initParams = [
         np.linspace(0.001, 0.02, 10),
         np.array(list(np.linspace(1.5, 50, 10)) + list(np.linspace(-50, 1.5, 10))),
@@ -118,10 +125,11 @@ def main():
     net = loadNet(model, weights)
     l_err = generateAllFrame(sample_dir, xml_INFO=xml_INFO, net=net, BEV_coord=BEV_coords, initParams=initParams, predLinFit=predLinFit)
 
-    with open("./%s.xml" % (sample), 'w') as f_out:
+    with open("./TSD-LKSM-Result-Cargo/%s-Result.xml" % (sample), 'w') as f_out:
+        f_out.write('<?xml version="1.0" encoding="gbk"?>\n')	
         f_out.write("<opencv_storage>\n")
         for i,e in enumerate(l_err):
-            f_out.write("  <Frame%0*d>%e</Frame%0*d>\n" % (5, 1, e, 5, 1))
+            f_out.write("  <Frame%0*d>%e</Frame%0*d>\n" % (5, i, e, 5, i))
 
         f_out.write("</opencv_storage>")
 
